@@ -28,7 +28,7 @@ A prediction is one row per person per match (`a_win` / `draw` / `b_win`). Submi
 
 ## Where the data comes from
 
-Out of the box the app ships with fixtures hard-coded in `fixtures.js` (the official FIFA 2026 draw, 6 Dec 2025) and seeded into `data.json` once. In **manual mode** that schedule is static and the PM edits matches/results from the terminal via `admin.js` (see Admin section).
+Out of the box the app ships with fixtures hard-coded in `fixtures.js` (the official FIFA 2026 draw, 6 Dec 2025) and seeded into `data.json` once. In **manual mode** that schedule is static and the DEV edits matches/results from the terminal via `admin.js` (see Admin section).
 
 ## Live data via football-data.org (optional)
 
@@ -65,7 +65,7 @@ Notes: free-tier scores are slightly delayed (not real-time), which is fine for 
 
 All configurable via the admin CLI.
 
-## Admin — terminal only (the PM)
+## Admin
 
 There is **no admin panel in the web app** (nothing sensitive is exposed in the browser). All admin actions run from the terminal via `admin.js`, while the server is running. Auth is the `ADMIN_KEY` env var (default `worldcup-admin`).
 
