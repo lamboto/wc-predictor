@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 728" preserveAspectRatio="xMidYMid slice">
+  <!-- WC26 trophy palette: cream · gold · bronze · brown -->
+  <!-- base deep brown (right) -->
+  <rect width="1200" height="728" fill="#6b5230"/>
+
+  <!-- light gold top-right -->
+  <rect x="752" y="0" width="280" height="300" fill="#e9cf94"/>
+
+  <!-- tan left field with curved right edge -->
+  <path d="M0,0 L560,0 C636,210 636,520 545,728 L0,728 Z" fill="#c9a25a"/>
+
+  <!-- cream bubble peeking from top -->
+  <circle cx="565" cy="10" r="115" fill="#f4e7cd"/>
+
+  <!-- gold center band (tall rounded lozenge) -->
+  <rect x="462" y="44" width="300" height="664" rx="140" fill="#c9963f"/>
+
+  <!-- bronze bottom-left -->
+  <rect x="-30" y="470" width="400" height="300" rx="44" fill="#a6781f"/>
+
+  <!-- dark tan bottom-center -->
+  <rect x="300" y="568" width="540" height="200" rx="100" fill="#8a6a2f"/>
+</svg>

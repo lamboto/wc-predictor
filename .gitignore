@@ -1,0 +1,14 @@
+# Local data & secrets — never commit (lives on the host's persistent disk instead)
+data.json
+
+# Scratch preview renders
+_preview*.png
+_bgpreview.png
+_palette_preview.png
+
+# Dependencies / OS / logs
+node_modules/
+*.log
+.DS_Store
+.env
+.fuse_hidden*

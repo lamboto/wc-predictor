@@ -1,0 +1,13 @@
+{
+  "name": "wc-predictor",
+  "version": "1.0.0",
+  "description": "Team World Cup 2026 prediction app — pick winners, crown a champion, climb the leaderboard.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": true
+}

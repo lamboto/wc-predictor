@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team World Cup Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="aura" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+  <!-- Intro / landing splash (shown on every load) -->
+  <div id="intro">
+    <div class="mhero intro-hero" aria-hidden="true">
+      <div class="mhero-fill">
+        <div class="mhero-blobs"></div>
+        <video class="mhero-video" autoplay muted loop playsinline webkit-playsinline preload="auto" poster="hero-poster.jpg">
+          <source src="hero.mp4" type="video/mp4" />
+        </video>
+      </div>
+    </div>
+    <div class="intro-hint">click to enter</div>
+  </div>
+
+  <!-- Team access gate -->
+  <div id="gate-screen" class="join-wrap hidden">
+    <div class="join-card">
+      <h1>Team Access</h1>
+      <p class="muted">Enter the access code your team shared with you.</p>
+      <form id="gate-form">
+        <input id="gate-code" type="password" placeholder="Access code" autocomplete="off" />
+        <button type="submit">Enter</button>
+      </form>
+      <p id="gate-error" class="error"></p>
+    </div>
+  </div>
+
+  <!-- Join gate -->
+  <div id="join-screen" class="join-wrap hidden">
+    <div class="join-card">
+      <h1>World Cup Predictor</h1>
+      <p class="muted">Pick winners. Crown a champion. Climb the board.</p>
+      <form id="join-form">
+        <input id="join-name" type="text" maxlength="40" placeholder="Your name" autocomplete="off" />
+        <input id="join-pin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN (optional, 4–8 digits)" autocomplete="off" />
+        <button type="submit">Join / Log in</button>
+      </form>
+      <p id="join-help" class="muted small">New here? Pick a name — add a PIN to keep it yours. Coming back? Type the same name (and PIN if you set one).</p>
+      <p id="join-error" class="error"></p>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div id="app" class="hidden">
+    <header>
+      <button id="nav-toggle" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="view-nav"><span></span><span></span><span></span></button>
+      <nav class="nav-group nav-left">
+        <button class="tab active" data-view="matches">Matches</button>
+        <button class="tab" data-view="schedule">Schedule</button>
+        <button class="tab" data-view="champion">Champion</button>
+      </nav>
+      <div class="brand"><video class="brand-logo brand-vid" autoplay loop muted playsinline webkit-playsinline preload="auto" poster="logo-poster.jpg"><source src="logo.mp4" type="video/mp4"></video><span class="brand-by">by Teodor</span><img id="champ-flag-badge" class="champ-flag-badge" alt="" /></div>
+      <nav class="nav-group nav-right">
+        <button class="tab" data-view="picks">Picks</button>
+        <button class="tab" data-view="leaderboard">Leaderboard</button>
+        <button class="tab" data-view="standings">Groups</button>
+        <span class="who">
+          <span id="who-avatar" class="who-avatar"></span>
+          <span id="who-name"></span>
+        </span>
+      </nav>
+    </header>
+
+    <div class="cd-band">
+      <div class="countdown" id="countdown"></div>
+    </div>
+
+    <main>
+      <!-- Matches -->
+      <section id="view-matches" class="view">
+        <h2 id="matches-title">Upcoming Matches</h2>
+        <p class="muted small">Picks lock at kickoff. Change them freely until then.</p>
+        <div id="matches-list" class="cards"></div>
+        <p id="matches-empty" class="empty hidden"></p>
+      </section>
+
+      <!-- Schedule (full program, view-only) -->
+      <section id="view-schedule" class="view hidden">
+        <h2>Schedule</h2>
+        <p class="muted small">All upcoming matches. To make predictions, open the Matches tab.</p>
+        <div id="schedule-list"></div>
+        <p id="schedule-empty" class="empty hidden">No upcoming matches.</p>
+      </section>
+
+      <!-- Champion -->
+      <section id="view-champion" class="view hidden">
+        <h2>My Champion Pick</h2>
+        <p class="muted small" id="champion-hint"></p>
+        <div id="champion-showcase" class="champ-showcase"></div>
+        <p id="champion-msg" class="ok"></p>
+        <input id="champion-search" class="champ-search" type="text" placeholder="Search a team…" autocomplete="off" />
+        <div id="champion-grid" class="team-grid"></div>
+      </section>
+
+      <!-- Leaderboard -->
+      <section id="view-leaderboard" class="view hidden">
+        <div class="lb-content">
+          <div class="lb-toggle">
+            <button class="lb-tab active" data-lb="points">Points</button>
+            <button class="lb-tab" data-lb="money">Money</button>
+          </div>
+          <div id="lb-podium" class="lb-podium"></div>
+          <div id="lb-list" class="lb-list"></div>
+          <aside class="legend">
+            <h3>How points work</h3>
+            <ul id="legend-list"></ul>
+          </aside>
+          <p class="muted small lb-updated" id="lb-updated"></p>
+        </div>
+      </section>
+
+      <!-- Groups (fixture posters per group) -->
+      <section id="view-standings" class="view hidden">
+        <h2>Groups</h2>
+        <p class="muted small">Every group's programme. Scores appear in the middle once matches are played.</p>
+        <div id="standings-list"></div>
+        <p id="standings-empty" class="empty hidden">Group fixtures appear here.</p>
+      </section>
+
+
+      <!-- Picks (who picked what) -->
+      <section id="view-picks" class="view hidden">
+        <h2>Who Picked What</h2>
+        <p class="muted small">Everyone's picks for upcoming matches, plus each player's champion. Picks for a match stop changing once it locks.</p>
+        <h3 class="picks-h">Champion picks</h3>
+        <div id="champion-fav"></div>
+        <div id="picks-champions" class="champ-grid"></div>
+        <h3 class="picks-h">Upcoming match picks</h3>
+        <div id="pk-filters" class="pk-filters"></div>
+        <div id="picks-matches"></div>
+        <p id="picks-empty" class="empty hidden">No picks yet for upcoming matches.</p>
+      </section>
+
+    </main>
+
+    <!-- Player profile (slide-in side panel) -->
+    <div id="profile-drawer" class="pf-drawer hidden" aria-hidden="true">
+      <div class="pf-drawer-scrim" data-close></div>
+      <aside class="pf-drawer-panel" role="dialog" aria-modal="true" aria-label="Player profile">
+        <button class="pf-drawer-close" data-close aria-label="Close">✕</button>
+        <div id="profile-content"></div>
+      </aside>
+    </div>
+
+    <!-- Floating team chat -->
+    <div id="chat">
+      <button id="chat-toggle" class="chat-toggle" aria-label="Open team chat">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span id="chat-badge" class="chat-badge hidden">0</span>
+      </button>
+      <div id="chat-panel" class="chat-panel hidden">
+        <div class="chat-head"><span>Team chat <span class="chat-online" id="chat-online"></span></span><button id="chat-close" class="chat-close" aria-label="Close">✕</button></div>
+        <div id="chat-msgs" class="chat-msgs"></div>
+        <div id="chat-typing" class="chat-typing hidden"></div>
+        <div id="chat-mention" class="chat-mention hidden"></div>
+        <div id="chat-emoji-panel" class="chat-emoji-panel hidden"></div>
+        <form id="chat-form" class="chat-form">
+          <button type="button" id="chat-emoji-btn" class="chat-emoji-btn" aria-label="Add emoji">🙂</button>
+          <input id="chat-input" type="text" maxlength="500" placeholder="Message…" autocomplete="off" />
+          <button type="submit" class="chat-send">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

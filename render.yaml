@@ -1,0 +1,25 @@
+# Render.com blueprint — deploy straight from your GitHub repo.
+# In Render: New + → Blueprint → pick your repo. It reads this file.
+services:
+  - type: web
+    name: wc-predictor
+    runtime: node
+    region: frankfurt        # closest Render region to Bulgaria (lower latency)
+    plan: starter            # "starter" allows a persistent disk; "free" resets data on restart
+    buildCommand: ""         # zero dependencies, nothing to build
+    startCommand: node server.js
+    envVars:
+      - key: DATA_FILE
+        value: /data/data.json   # store the database on the persistent disk below
+      - key: ACCESS_CODE
+        sync: false              # set your team code in the Render dashboard (kept secret)
+      - key: ADMIN_KEY
+        sync: false              # set a strong admin key in the dashboard
+      - key: FOOTBALL_DATA_API_KEY
+        sync: false              # optional: your football-data.org token
+      - key: ODDS_API_KEY
+        sync: false              # optional: your the-odds-api.com token (for betting odds)
+    disk:
+      name: wc-data
+      mountPath: /data           # persistent disk so players/results survive restarts & redeploys
+      sizeGB: 1
