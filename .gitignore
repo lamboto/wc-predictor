@@ -1,5 +1,9 @@
 # Local data & secrets — never commit (lives on the host's persistent disk instead)
 data.json
+data.json.bak
+data.json.tmp.*
+# Uploaded avatars (user data; stored next to data.json on the persistent disk)
+avatars/
 
 # Scratch preview renders
 _preview*.png

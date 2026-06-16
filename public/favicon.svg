@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="112" fill="#3b2d16"/>
+  <circle cx="256" cy="232" r="150" fill="#4a3a20"/>
+  <!-- trophy -->
+  <g fill="#ffd23f">
+    <!-- handles -->
+    <path d="M150 150 q-58 4 -58 58 q0 48 64 58 v-34 q-30 -8 -30 -26 q0 -20 24 -22 z"/>
+    <path d="M362 150 q58 4 58 58 q0 48 -64 58 v-34 q30 -8 30 -26 q0 -20 -24 -22 z"/>
+  </g>
+  <g fill="#c9963f">
+    <!-- cup bowl -->
+    <path d="M158 120 h196 v62 a98 98 0 0 1 -196 0 z"/>
+  </g>
+  <g fill="#ffd23f">
+    <rect x="156" y="118" width="200" height="20" rx="6"/>
+    <!-- stem -->
+    <rect x="240" y="300" width="32" height="48"/>
+    <!-- base -->
+    <rect x="196" y="346" width="120" height="22" rx="8"/>
+    <path d="M180 372 h152 l-14 34 h-124 z"/>
+  </g>
+  <!-- star on cup -->
+  <path d="M256 168 l13 27 30 4 -22 21 5 30 -26 -15 -26 15 5 -30 -22 -21 30 -4 z" fill="#3b2d16" opacity="0.85"/>
+</svg>

@@ -8,6 +8,9 @@
 //   node admin.js result <matchId> <a_win|draw|b_win|clear>
 //   node admin.js teams <matchId> "<Team A>" "<Team B>"   # fill a knockout fixture
 //   node admin.js winner "<Team>"                          # award champion bonus
+//   node admin.js pick "<name>" "<Team A>" "<Team B>" "<winner|draw>"  # set a player's pick (admin override)
+//   node admin.js clearafter "<name>" "<Team A>" "<Team B>"  # remove a player's picks for matches after this one
+//   node admin.js resetpin "<name>"                         # clear a player's PIN (they set a new one next login)
 //   node admin.js rename "<old name>" "<new name>"          # rename a player (keeps points)
 //   node admin.js set <key> <value>                        # config: knockoutDouble,
 //        lockLeadHours, championLock, dataSource, autoSync, apiCompetition, apiKey
@@ -39,7 +42,7 @@ const fmt = (iso) => new Date(iso).toLocaleString();
 const RES = { a_win: "A win", draw: "Draw", b_win: "B win", null: "—" };
 
 (async () => {
-  const [cmd, a, b, c] = process.argv.slice(2);
+  const [cmd, a, b, c, d] = process.argv.slice(2);
 
   if (!cmd || cmd === "help" || cmd === "-h") {
     const lines = require("fs").readFileSync(__filename, "utf8").split("\n").slice(1);
@@ -133,6 +136,30 @@ const RES = { a_win: "A win", draw: "Draw", b_win: "B win", null: "—" };
     if (!a || !b) { console.error('usage: node admin.js rename "<old name>" "<new name>"'); process.exit(1); }
     await call("/api/admin/rename", "POST", { from: a, to: b });
     console.log(`✓ renamed "${a}" → "${b}" (predictions & points kept)`);
+    return;
+  }
+
+  if (cmd === "pick") {
+    // node admin.js pick "<name>" "<Team A>" "<Team B>" "<winner team | draw>"
+    if (!a || !b || !c || !d) { console.error('usage: node admin.js pick "<name>" "<Team A>" "<Team B>" "<winner team | draw>"'); process.exit(1); }
+    const r = await call("/api/admin/predict", "POST", { name: a, teamA: b, teamB: c, pick: d });
+    console.log(`✓ ${r.player} → ${r.match}: picked ${r.picked}`);
+    return;
+  }
+
+  if (cmd === "clearafter") {
+    // node admin.js clearafter "<name>" "<Team A>" "<Team B>"  → wipes that player's picks for matches kicking off after this one
+    if (!a || !b || !c) { console.error('usage: node admin.js clearafter "<name>" "<Team A>" "<Team B>"'); process.exit(1); }
+    const r = await call("/api/admin/clearpicks", "POST", { name: a, afterTeamA: b, afterTeamB: c });
+    console.log(`✓ ${r.player}: removed ${r.removed} pick(s) after ${r.after}`);
+    return;
+  }
+
+  if (cmd === "resetpin") {
+    // node admin.js resetpin "<name>"  → clears the PIN; they set a new one on next login
+    if (!a) { console.error('usage: node admin.js resetpin "<name>"'); process.exit(1); }
+    const r = await call("/api/admin/resetpin", "POST", { name: a });
+    console.log(`✓ PIN reset for "${r.player}". They log in with their name and the new PIN they type becomes their PIN — tell them to do it soon.`);
     return;
   }
 

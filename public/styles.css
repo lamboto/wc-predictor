@@ -968,9 +968,9 @@ body.drawer-open { overflow: hidden; }
 /* picks → compact flip cards (front = matchup, back = who picked) */
 .pk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(264px, 1fr)); gap: 16px; }
 .pkf { perspective: 1200px; height: 304px; }
-.pkf-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.55s cubic-bezier(0.4, 0.2, 0.2, 1); cursor: pointer; border-radius: 18px; }
-.pkf.flipped .pkf-inner { transform: rotateY(180deg); }
-.pkf-face { position: absolute; inset: 0; border-radius: 18px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: flex; flex-direction: column; }
+.pkf-inner { position: relative; width: 100%; height: 100%; -webkit-transform-style: preserve-3d; transform-style: preserve-3d; transition: -webkit-transform 0.55s cubic-bezier(0.4, 0.2, 0.2, 1), transform 0.55s cubic-bezier(0.4, 0.2, 0.2, 1); cursor: pointer; border-radius: 18px; }
+.pkf.flipped .pkf-inner { -webkit-transform: rotateY(180deg); transform: rotateY(180deg); }
+.pkf-face { position: absolute; inset: 0; border-radius: 18px; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden; -webkit-transform: rotateY(0deg); transform: rotateY(0deg); display: flex; flex-direction: column; }
 .pkf-front { background: #0d0a05 url('matches-bg.svg') center / cover no-repeat; color: #fff; padding: 12px 12px 11px; }
 .pkf-front .mh-burst { display: none; }
 .pkf-front::after { content: ""; position: absolute; inset: 0; z-index: 1; background: radial-gradient(circle at 50% 38%, rgba(11,11,20,0.66) 0 30%, rgba(11,11,20,0.2) 60%, rgba(11,11,20,0.55) 100%); }
@@ -992,7 +992,7 @@ body.drawer-open { overflow: hidden; }
 .pkf-front-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; padding-top: 9px; }
 .pkf-headline { font-family: var(--display); font-weight: 700; font-size: 0.76rem; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pkf-flip { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.82); white-space: nowrap; }
-.pkf-back { background: linear-gradient(165deg, #1a1d44, #0c0d22); color: #fff; padding: 12px 12px 10px; transform: rotateY(180deg); overflow-y: auto; }
+.pkf-back { background: linear-gradient(165deg, #1a1d44, #0c0d22); color: #fff; padding: 12px 12px 10px; -webkit-transform: rotateY(180deg); transform: rotateY(180deg); overflow-y: auto; }
 .pkb-h { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--display); font-weight: 700; color: #fff; font-size: 0.9rem; margin-bottom: 10px; }
 .pkb-h span { font-size: 0.68rem; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.4px; }
 .pkb-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; flex: 1; }
@@ -1147,7 +1147,7 @@ footer { text-align: center; padding: 24px; }
 .cm { display: flex; gap: 8px; max-width: 88%; }
 .cm.them { align-self: flex-start; }
 .cm.me { align-self: flex-end; flex-direction: row-reverse; }
-.cm-ava { flex: 0 0 auto; }
+.cm-ava { flex: 0 0 auto; align-self: flex-start; position: relative; width: 30px; height: 30px; line-height: 0; }
 .cm-ava .ava { width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; }
 .cm-ava .ava-mono { font-size: 0.8rem; }
 .cm-body { display: flex; flex-direction: column; min-width: 0; }
@@ -1162,13 +1162,55 @@ footer { text-align: center; padding: 24px; }
 .cm-empty { text-align: center; margin: auto; }
 .cm-sys-wrap { align-self: center; max-width: 92%; display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .cm-sys { text-align: center; font-size: 0.76rem; font-weight: 600; color: rgb(59,45,22); background: rgba(166,120,31,0.10); border-radius: 12px; padding: 6px 12px; }
-.cm-mention { color: var(--accent-blue); font-weight: 700; }
+.cm-mention { font-weight: 800; border-radius: 5px; padding: 0 4px; }
+.cm.them .cm-mention { color: var(--accent-blue); background: rgba(166,120,31,0.14); }
+.cm.me .cm-mention { color: #fff; background: rgba(255,255,255,0.30); }
+.cm-seen { align-self: flex-end; font-size: 0.64rem; color: var(--muted); margin: 1px 6px 2px; font-style: italic; }
 /* compact reaction bar inside chat bubbles */
 .cm-rx { margin-top: 2px; }
 .cm.me .cm-rx { display: flex; justify-content: flex-end; }
 .cm-rx .rx { margin-top: 2px; gap: 4px; }
 .cm-rx .rx-add { width: 22px; height: 22px; font-size: 0.8rem; }
 .cm-rx .rx-emoji { font-size: 1rem; padding: 1px 3px; }
+
+/* ===== chat: reply quote, edit, actions, unread divider ===== */
+/* quoted snippet above a reply */
+.cm-quote { display: flex; flex-direction: column; gap: 1px; max-width: 100%; margin: 0 2px 3px; padding: 4px 9px; border-left: 3px solid var(--accent-blue); border-radius: 6px; background: rgba(166,120,31,0.10); cursor: pointer; }
+.cm.me .cm-quote { border-left: none; border-right: 3px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.14); }
+.cm-quote-name { font-size: 0.66rem; font-weight: 800; color: var(--accent-blue); }
+.cm.me .cm-quote-name { color: #fff; }
+.cm-quote-text { font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.cm.me .cm-quote-text { color: rgba(255,255,255,0.85); }
+.cm-quote-del .cm-quote-text { color: var(--muted); }
+
+/* "edited" tag next to time */
+.cm-edited { font-style: italic; opacity: 0.8; }
+
+/* hover action buttons (reply / edit / delete) */
+.cm-actions { display: flex; gap: 4px; margin: 2px 4px 0; opacity: 0; transition: opacity 0.12s ease; pointer-events: none; }
+.cm.me .cm-actions { justify-content: flex-end; }
+.cm:hover .cm-actions, .cm-sys-wrap:hover .cm-actions { opacity: 1; pointer-events: auto; }
+.cm-actions button { position: static; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border-radius: 50%; background: #fff; color: var(--muted); border: 1px solid var(--line-strong); box-shadow: none; font-size: 0.72rem; line-height: 1; top: auto; right: auto; }
+.cm-actions button:hover { background: #efe9da; color: var(--text); transform: none; box-shadow: none; }
+.cm-actions .cm-del:hover { color: var(--danger); }
+.cm-sys-wrap .cm-actions { justify-content: center; }
+
+/* unread divider */
+.cm-divider { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--danger); font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; }
+.cm-divider::before, .cm-divider::after { content: ""; flex: 1; height: 1px; background: var(--danger); opacity: 0.4; }
+
+/* flash when jumping to a quoted message */
+.cm-flash .cm-bubble, .cm-flash .cm-sys { animation: cmflash 1.4s ease; }
+@keyframes cmflash { 0%, 100% { box-shadow: none; } 25%, 60% { box-shadow: 0 0 0 3px rgba(255,210,63,0.7); } }
+
+/* compose context bar (reply/edit) above the input */
+.chat-ctx { border-top: 1px solid var(--line); background: var(--card); }
+.cc-bar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; }
+.cc-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; border-left: 3px solid var(--accent-blue); padding-left: 8px; }
+.cc-label { font-size: 0.7rem; font-weight: 800; color: var(--accent-blue); }
+.cc-snip { font-size: 0.74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-cancel { flex: 0 0 auto; width: 24px; height: 24px; padding: 0; border-radius: 50%; background: var(--card2); color: var(--muted); border: 1px solid var(--line-strong); box-shadow: none; font-size: 0.78rem; }
+.cc-cancel:hover { background: #efe9da; color: var(--text); transform: none; box-shadow: none; }
 .cm-rx .rx-chip { padding: 1px 7px; font-size: 0.78rem; }
 .cm-rx .rx-palette { padding: 4px 6px; }
 /* @mention autocomplete dropdown */
@@ -1490,3 +1532,57 @@ body.art-bg .aura, body.theme-blue .aura { display: none; } /* leaderboard alrea
 .gd[open] > summary { border-bottom: 1px solid var(--line); }
 .gd-body { padding: 12px 14px; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
 .gd-body b { color: var(--text); }
+
+.cm-ava[data-profile], .cm-name[data-profile] { cursor: pointer; }
+.cm-name[data-profile]:hover { text-decoration: underline; }
+
+/* schedule "Group X" pill → links to that group on the Groups page */
+.schr-pill.link { cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.schr-pill.link:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(166,120,31,0.4); }
+.gp-card.grp-flash { animation: grpflash 1.6s ease; }
+@keyframes grpflash { 0%, 100% { box-shadow: 0 10px 26px rgba(59,45,22,0.25); } 25%, 60% { box-shadow: 0 0 0 4px #ffd23f, 0 12px 30px rgba(255,210,63,0.5); } }
+
+/* edit profile: photo row */
+.npe-photo { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.npe-prev .ava { width: 52px; height: 52px; border-radius: 50%; vertical-align: middle; border: 2px solid var(--line-strong); }
+.npe-prev .ava-mono { font-size: 1.3rem; }
+/* Choose photo + Remove — identical font, size and shape */
+.npe-photobtn, .npe-photo .npe-ghost {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 38px; padding: 0 16px; box-sizing: border-box; flex: 0 0 auto;
+  border-radius: 10px; border: 1px solid var(--line-strong);
+  font-family: var(--display); font-weight: 700; font-size: 0.85rem; line-height: 1; letter-spacing: 0.2px;
+  color: var(--text); background: var(--card2); cursor: pointer; box-shadow: none;
+}
+.npe-photobtn:hover, .npe-photo .npe-ghost:hover { background: #efe9da; transform: none; box-shadow: none; }
+.npe-photobtn input[type=file] { display: none; }
+
+/* ===== photo lightbox (click a profile photo to enlarge) ===== */
+.np-ava .ava-photo { cursor: zoom-in; }
+.photo-lightbox { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; background: rgba(20, 14, 4, 0.86); padding: 24px; cursor: zoom-out; }
+.photo-lightbox.hidden { display: none; }
+.plb-img { max-width: 90vw; max-height: 85vh; border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,0.5); border: 3px solid var(--gold, #c9963f); object-fit: contain; }
+.plb-close { position: absolute; top: 18px; right: 20px; width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.3); font-size: 1.1rem; cursor: pointer; }
+.plb-close:hover { background: rgba(255,255,255,0.26); }
+
+/* ===== prize pot banner (Leaderboard → Points) ===== */
+.lb-pot { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--line-strong); border-radius: 16px; padding: 16px 18px; margin-bottom: 18px; }
+.pot-badge { display: flex; align-items: center; gap: 13px; flex: 0 0 auto; }
+.pot-trophy { width: 52px; height: 52px; border-radius: 50%; background: var(--gold, #c9963f); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.pot-lbl { font-size: 0.7rem; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-blue); font-weight: 700; font-family: var(--display); }
+.pot-amt { font-size: 1.9rem; font-weight: 800; color: var(--text); font-family: var(--display); line-height: 1; }
+.pot-rule { flex: 1 1 200px; min-width: 170px; border-left: 1px solid var(--line-strong); padding-left: 18px; }
+.pot-rule-main { font-size: 0.98rem; color: var(--text); font-weight: 700; font-family: var(--display); }
+.pot-rule-sub { font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
+.pot-leader { flex: 0 0 auto; display: flex; align-items: center; gap: 11px; background: var(--bg-deep, #3b2d16); border-radius: 12px; padding: 9px 15px; }
+.pot-leadava .ava { width: 38px; height: 38px; border-radius: 50%; vertical-align: middle; }
+.pot-leadava .ava-mono { font-size: 1rem; }
+.pot-leadlbl { font-size: 0.66rem; letter-spacing: 0.5px; text-transform: uppercase; color: #e6c98f; font-family: var(--display); }
+.pot-leadname { font-size: 0.95rem; color: #fffaf0; font-weight: 700; font-family: var(--display); }
+.pot-leadwin { font-size: 0.76rem; color: #ffd23f; }
+.pot-leader-none .pot-leadname { color: #f3e6cf; }
+@media (max-width: 560px) {
+  .lb-pot { gap: 12px; }
+  .pot-rule { border-left: none; padding-left: 0; flex-basis: 100%; order: 3; }
+  .pot-leader { flex: 1 1 auto; }
+}

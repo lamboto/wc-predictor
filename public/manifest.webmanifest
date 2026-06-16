@@ -1,0 +1,15 @@
+{
+  "name": "Team World Cup Predictor",
+  "short_name": "WC Predictor",
+  "description": "Pick winners, crown a champion, climb the leaderboard.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4e7cd",
+  "theme_color": "#3b2d16",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

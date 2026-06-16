@@ -4,6 +4,32 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Team World Cup Predictor</title>
+  <meta name="description" content="Pick winners, crown a champion, climb the leaderboard — our private World Cup prediction game." />
+
+  <!-- Private app: keep it out of search engines -->
+  <meta name="robots" content="noindex, nofollow" />
+
+  <!-- Browser chrome + home-screen install -->
+  <meta name="theme-color" content="#3b2d16" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="WC Predictor" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+
+  <!-- Link preview (Open Graph + Twitter) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Team World Cup Predictor" />
+  <meta property="og:description" content="Pick winners, crown a champion, climb the leaderboard." />
+  <meta property="og:image" content="/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Team World Cup Predictor" />
+  <meta name="twitter:description" content="Pick winners, crown a champion, climb the leaderboard." />
+  <meta name="twitter:image" content="/og-image.png" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -44,11 +70,11 @@
       <h1>World Cup Predictor</h1>
       <p class="muted">Pick winners. Crown a champion. Climb the board.</p>
       <form id="join-form">
-        <input id="join-name" type="text" maxlength="40" placeholder="Your name" autocomplete="off" />
-        <input id="join-pin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN (optional, 4–8 digits)" autocomplete="off" />
+        <input id="join-name" type="text" maxlength="40" placeholder="Your name" autocomplete="off" required />
+        <input id="join-pin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN — 4–8 digits (required)" autocomplete="off" required />
         <button type="submit">Join / Log in</button>
       </form>
-      <p id="join-help" class="muted small">New here? Pick a name — add a PIN to keep it yours. Coming back? Type the same name (and PIN if you set one).</p>
+      <p id="join-help" class="muted small">Both a name and a PIN are required. New here? Pick a name and set a PIN — you'll need the same two every time. Coming back? Enter the same name and PIN.</p>
       <p id="join-error" class="error"></p>
     </div>
   </div>
@@ -82,7 +108,7 @@
       <!-- Matches -->
       <section id="view-matches" class="view">
         <h2 id="matches-title">Upcoming Matches</h2>
-        <p class="muted small">Picks lock at kickoff. Change them freely until then.</p>
+        <p class="muted small">Every fixture still to play — predict or bet on any of them. Picks lock at kickoff; change them freely until then.</p>
         <div id="matches-list" class="cards"></div>
         <p id="matches-empty" class="empty hidden"></p>
       </section>
@@ -108,10 +134,6 @@
       <!-- Leaderboard -->
       <section id="view-leaderboard" class="view hidden">
         <div class="lb-content">
-          <div class="lb-toggle">
-            <button class="lb-tab active" data-lb="points">Points</button>
-            <button class="lb-tab" data-lb="money">Money</button>
-          </div>
           <div id="lb-podium" class="lb-podium"></div>
           <div id="lb-list" class="lb-list"></div>
           <aside class="legend">
@@ -166,6 +188,7 @@
         <div id="chat-msgs" class="chat-msgs"></div>
         <div id="chat-typing" class="chat-typing hidden"></div>
         <div id="chat-mention" class="chat-mention hidden"></div>
+        <div id="chat-ctx" class="chat-ctx hidden"></div>
         <div id="chat-emoji-panel" class="chat-emoji-panel hidden"></div>
         <form id="chat-form" class="chat-form">
           <button type="button" id="chat-emoji-btn" class="chat-emoji-btn" aria-label="Add emoji">🙂</button>

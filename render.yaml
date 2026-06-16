@@ -8,6 +8,7 @@ services:
     plan: starter            # "starter" allows a persistent disk; "free" resets data on restart
     buildCommand: ""         # zero dependencies, nothing to build
     startCommand: node server.js
+    healthCheckPath: /api/health   # Render pings this to confirm the app is alive
     envVars:
       - key: DATA_FILE
         value: /data/data.json   # store the database on the persistent disk below
@@ -15,6 +16,8 @@ services:
         sync: false              # set your team code in the Render dashboard (kept secret)
       - key: ADMIN_KEY
         sync: false              # set a strong admin key in the dashboard
+      - key: GATE_SECRET
+        sync: false              # signs login tokens; set a long random value (keeps the secret out of the data file)
       - key: FOOTBALL_DATA_API_KEY
         sync: false              # optional: your football-data.org token
       - key: ODDS_API_KEY

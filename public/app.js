@@ -4,10 +4,12 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const api = async (path, opts = {}) => {
   const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
   if (store.gate) headers["X-Gate-Token"] = store.gate;
+  if (store.token) headers["X-Auth-Token"] = store.token; // per-player auth on write actions
   const r = await fetch(path, { ...opts, headers });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     if (r.status === 401 && data.gate) { store.gate = null; showGate(); }
+    if (r.status === 401 && data.auth) { store.token = null; store.person = null; location.reload(); } // session expired → re-login
     throw new Error(data.error || "Request failed");
   }
   return data;
@@ -20,6 +22,8 @@ const store = {
   set person(p) { p ? localStorage.setItem("wc_person", JSON.stringify(p)) : localStorage.removeItem("wc_person"); },
   get gate() { return localStorage.getItem("wc_gate") || ""; },
   set gate(t) { t ? localStorage.setItem("wc_gate", t) : localStorage.removeItem("wc_gate"); },
+  get token() { return localStorage.getItem("wc_token") || ""; },
+  set token(t) { t ? localStorage.setItem("wc_token", t) : localStorage.removeItem("wc_token"); },
 };
 
 // Safari is strict about muted autoplay — force every decorative video to play.
@@ -186,6 +190,24 @@ function oddArrow(dir) {
 }
 
 // player avatar: photo in a circle if set, otherwise a monogram (first letter of name)
+// downscale a chosen image to a small square-ish JPEG data URL (keeps storage light)
+function resizeImage(file, max, cb) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      const scale = Math.min(1, max / Math.max(w, h));
+      w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale));
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      try { cb(c.toDataURL("image/jpeg", 0.82)); } catch (e) { cb(reader.result); }
+    };
+    img.onerror = () => cb(reader.result);
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
 function avatarMark(name, photo) {
   const initial = ((name || "?").trim().charAt(0) || "?").toUpperCase();
   return photo
@@ -246,6 +268,7 @@ async function init() {
   if (info.gateRequired && !store.gate) { showGate(); return; }
 
   const p = store.person;
+  if (p && !store.token) { store.person = null; showJoin(); return; } // legacy session without a token → log in once
   if (p) {
     try {
       await api(`/api/me?personId=${p.id}`); // validate still exists (also re-checks gate)
@@ -289,9 +312,13 @@ $("#join-form").addEventListener("submit", async (e) => {
   const name = $("#join-name").value.trim();
   const pin = $("#join-pin").value.trim();
   $("#join-error").textContent = "";
+  if (!name) { $("#join-error").textContent = "Please enter your name."; return; }
+  if (!pin) { $("#join-error").textContent = "A PIN is required."; return; }
+  if (!/^\d{4,8}$/.test(pin)) { $("#join-error").textContent = "PIN must be 4–8 digits."; return; }
   try {
-    const { person } = await api("/api/join", { method: "POST", body: JSON.stringify({ name, pin }) });
+    const { person, token } = await api("/api/join", { method: "POST", body: JSON.stringify({ name, pin }) });
     store.person = person;
+    store.token = token || null;
     enterApp();
   } catch (err) {
     $("#join-error").textContent = err.message;
@@ -398,7 +425,7 @@ function renderCountdown() {
   const el = $("#cd-inner") || $("#countdown");
   if (!el || tournamentStartMs == null) return;
   const diff = tournamentStartMs - Date.now();
-  if (diff <= 0) { el.innerHTML = `<div class="cd-live">The tournament is underway</div>`; return; }
+  if (diff <= 0) { const band = document.querySelector(".cd-band"); if (band) band.classList.add("hidden"); clearInterval(cdTimer); return; }
   const d = Math.floor(diff / 86400000), h = Math.floor(diff / 3600000) % 24, m = Math.floor(diff / 60000) % 60, s = Math.floor(diff / 1000) % 60;
   const cell = (n, l) => `<div class="cd-cell"><div class="cd-num">${String(n).padStart(2, "0")}</div><div class="cd-label">${l}</div></div>`;
   const sep = `<span class="cd-sep">:</span>`;
@@ -476,12 +503,35 @@ function closeProfileDrawer() {
   document.body.classList.remove("drawer-open");
   setTimeout(() => d.classList.add("hidden"), 320);
 }
+// open a photo full-size in an overlay
+function openPhotoLightbox(src) {
+  if (!src) return;
+  let lb = document.getElementById("photo-lightbox");
+  if (!lb) {
+    lb = document.createElement("div");
+    lb.id = "photo-lightbox";
+    lb.className = "photo-lightbox hidden";
+    lb.innerHTML = `<button class="plb-close" aria-label="Close">✕</button><img class="plb-img" alt="" />`;
+    document.body.appendChild(lb);
+    lb.addEventListener("click", () => lb.classList.add("hidden"));
+  }
+  lb.querySelector(".plb-img").src = src;
+  lb.classList.remove("hidden");
+}
+function closePhotoLightbox() {
+  const lb = document.getElementById("photo-lightbox");
+  if (lb && !lb.classList.contains("hidden")) { lb.classList.add("hidden"); return true; }
+  return false;
+}
 document.addEventListener("click", (e) => {
+  // clicking the photo in an opened profile → show it larger
+  const hero = e.target.closest(".np-ava");
+  if (hero) { const img = hero.querySelector("img.ava-photo"); if (img) { openPhotoLightbox(img.src); return; } }
   const el = e.target.closest("[data-profile]");
   if (el) { openProfile(el.dataset.profile); return; }
   if (e.target.closest("[data-close]")) closeProfileDrawer();
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeProfileDrawer(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (!closePhotoLightbox()) closeProfileDrawer(); } });
 function switchView(view) {
   currentView = view;
   $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === view));
@@ -578,10 +628,20 @@ function renderGroups() {
              <div class="gp-date">${matchDate(m.kickoff_time)}</div>
            </div>`;
          }).join("")}</div>`;
-    return `<div class="gp-card"><div class="gp-title">Group ${g}</div>${inner}</div>`;
+    return `<div class="gp-card" id="grp-${g}"><div class="gp-title">Group ${g}</div>${inner}</div>`;
   }).join("") + `</div>`;
   wrap.innerHTML = toggle + body;
   wrap.querySelectorAll(".gt-btn").forEach((b) => b.addEventListener("click", () => { groupTab = b.dataset.gt; renderGroups(); }));
+  // if we arrived here from a Schedule "Group X" pill, scroll to that group + flash it
+  if (pendingGroupScroll) {
+    const target = wrap.querySelector(`#grp-${CSS.escape(pendingGroupScroll)}`);
+    pendingGroupScroll = null;
+    if (target) requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.add("grp-flash");
+      setTimeout(() => target.classList.remove("grp-flash"), 1600);
+    });
+  }
 }
 
 // ---------- scroll reveal (elements rise in as they enter the viewport) ----------
@@ -801,6 +861,18 @@ async function loadSchedule() {
   if (!matches.length) { wrap.innerHTML = ""; empty.classList.remove("hidden"); return; }
   empty.classList.add("hidden");
   wrap.innerHTML = `<div class="sch-rows">${matches.map(renderScheduleCard).join("")}</div>`;
+  wrap.querySelectorAll("[data-goto-group]").forEach((el) => {
+    const go = () => gotoGroup(el.dataset.gotoGroup);
+    el.addEventListener("click", go);
+    el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+  });
+}
+// jump from Schedule to a specific group on the Groups page
+let pendingGroupScroll = null;
+function gotoGroup(g) {
+  pendingGroupScroll = g;
+  groupTab = "standings";
+  switchView("standings");
 }
 
 // read-only full-width schedule row: date/time · flags + "A v. B" · status pill
@@ -811,6 +883,7 @@ function renderScheduleCard(m) {
   const timeStr = isLive ? `LIVE${m.minute != null ? " " + m.minute + "'" : ""}` : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   const hasScore = m.score_home != null && m.score_away != null;
   const pill = hasScore ? `${m.score_home}–${m.score_away}` : (m.stage === "knockout" ? (m.round || "Knockout") : `Group ${m.group}`);
+  const toGroup = (m.stage === "group" && m.group) ? ` data-goto-group="${m.group}" role="button" tabindex="0" title="Open Group ${m.group}"` : "";
   return `
     <div class="schr${isLive ? " live" : ""}">
       <div class="schr-when"><span class="schr-date">${dateStr}</span><span class="schr-time">${timeStr}</span></div>
@@ -819,7 +892,7 @@ function renderScheduleCard(m) {
         <span class="schr-vs"><b>${m.team_a}</b> <em>v.</em> <b>${m.team_b}</b></span>
         <span class="schr-flag">${flagCircle(m.team_b, m.flag_b, m.crest_b)}</span>
       </div>
-      <div class="schr-right"><span class="schr-pill${hasScore ? " score" : ""}">${pill}</span></div>
+      <div class="schr-right"><span class="schr-pill${hasScore ? " score" : ""}${toGroup ? " link" : ""}"${toGroup}>${pill}</span></div>
     </div>`;
 }
 
@@ -876,7 +949,7 @@ async function loadChampion() {
     ? "Champion pick is locked."
     : data.lockMode === "first_submission"
       ? "Worth 10 points. Locks the moment you pick — choose carefully!"
-      : "Worth 10 points. Tap a team. You can change it until the tournament's first kickoff.";
+      : (data.lockAt ? `Worth 10 points. Tap a team. You can change it until ${new Date(data.lockAt).toLocaleDateString()}.` : "Worth 10 points. Tap a team. You can change it until the tournament's first kickoff.");
   $("#champion-msg").textContent = "";
 }
 
@@ -908,6 +981,7 @@ function guideBlock() {
   const item = (title, body) => `<details class="gd"><summary>${title}</summary><div class="gd-body">${body}</div></details>`;
   return `<h3 class="pf-h">How it works</h3>
     <p class="muted small" style="margin:0 0 12px">Tap a section to expand.</p>
+    ${item("Logging in", "You sign in with a <b>name</b> and a <b>4–8 digit PIN</b> — both are required. The PIN keeps your name yours, so use the same two every time you come back. Forgot which name? It's the same one your friends see on the leaderboard.")}
     ${item("Predicting matches", "On the <b>Matches</b> tab, tap a team's flag to predict it wins — or tap <b>DRAW</b> in the middle. Your pick gets a gold ring. You can change it freely until kickoff, when it locks.")}
     ${item("Points", "You earn points for each <b>correct match result</b> and a bigger bonus for correctly picking the <b>tournament champion</b>. Knockout matches may count double. See the exact numbers in the <b>Leaderboard</b> legend.")}
     ${item("Champion pick", "On the <b>Champion</b> tab, crown the team you think wins the whole tournament. It's worth the most points and locks at the first kickoff, so choose carefully.")}
@@ -915,8 +989,9 @@ function guideBlock() {
     ${item("Leaderboard", "Two views: <b>Points</b> (prediction skill) and <b>Money</b> (betting balance + profit). Top 3 stand on the podium; you're highlighted, and gold / silver / bronze rings mark the top three everywhere they appear.")}
     ${item("Picks", "See <b>who picked what</b> for every upcoming match — tap a card to flip it and reveal the split — plus everyone's champion pick.")}
     ${item("Groups & Schedule", "<b>Groups</b> shows each group's fixtures and a live standings table (3 pts a win, 1 a draw). <b>Schedule</b> is the full match programme.")}
-    ${item("Your profile", "Your stats, accuracy, streaks and recent form live here, plus your <b>betting style</b> and your <b>rivalries</b> — your <i>twin</i> (picks most like you) and <i>nemesis</i> (calls it the opposite way). Tap the ✎ by your name to change your name or PIN.")}
-    ${item("Chat, reactions & online", "Use the floating <b>team chat</b> (bottom-right) with @mentions and emoji. React with emojis on picks and matches. A green dot on someone's avatar means they're <b>online</b> right now.")}`;
+    ${item("Your profile", "Your stats, accuracy, streaks and recent form live here, plus your <b>betting style</b>. Tap the ✎ by your name to change your name, PIN <b>or photo</b>.")}
+    ${item("Team chat", "Open the floating <b>chat</b> (bottom-right). Type <b>@</b> to mention someone, and tap 🙂 for emoji. Hover or long-press a message for actions: <b>↩ reply</b> quotes it (tap the quote to jump back), and on your own messages <b>✎ edit</b> (shows an \"edited\" tag) and <b>✕ delete</b>. A red <b>“New messages”</b> line marks where you left off, and <b>“Seen by…”</b> shows who's read your last message.")}
+    ${item("Reactions & online", "React with emojis on chat messages, picks and matches — tap the 🙂 to add one, tap again to remove. A green dot on someone's avatar (and a count in the chat header) means they're <b>online</b> right now.")}`;
 }
 
 // champion's bracket run: Groups → R32 → R16 → QF → SF → Final
@@ -1085,33 +1160,6 @@ async function loadProfile() {
       </div>
     </div>`;
 
-  // rivalries: clean tiles — twin (most alike) & nemesis (opposite + beats you)
-  const rv = d.rivals || { rivals: 0 };
-  const rivalTile = (r, kind) => {
-    const isTwin = kind === "twin";
-    if (!r) {
-      return `<div class="rv2 ${kind} empty">
-        <div class="rv2-tag">${isTwin ? "Twin" : "Nemesis"}</div>
-        <div class="rv2-empty">Needs more players to compare</div>
-      </div>`;
-    }
-    const metric = isTwin
-      ? `${r.agreeRate}<span>% alike</span>`
-      : (r.disagreeBeats > 0 ? `${r.disagreeBeats}×<span>beat you</span>` : `${r.disagree}<span>opposite calls</span>`);
-    return `<div class="rv2 ${kind}" data-profile="${r.person_id}" title="View ${r.name}'s profile">
-      <div class="rv2-tag">${isTwin ? "Twin" : "Nemesis"}</div>
-      <span class="rv2-ava${rankRing(r.person_id)}">${avatarMark(r.name, r.photo)}${onlineDot(r.person_id)}</span>
-      <div class="rv2-name">${r.name}</div>
-      <div class="rv2-metric">${metric}</div>
-    </div>`;
-  };
-  const rivalsBlock = rv.rivals
-    ? `<h3 class="pf-h">Rivalries</h3>
-       <div class="rv2-grid">${rivalTile(rv.twin, "twin")}${rivalTile(rv.nemesis, "nemesis")}</div>
-       <p class="rv-explain muted small">Based on the matches you've both predicted: your <b>twin</b> picks most like you, your <b>nemesis</b> calls it the opposite way — and out-guesses you when you disagree.</p>`
-    : `<h3 class="pf-h">Rivalries</h3>
-       <p class="muted small">Not enough shared picks yet — your twin & nemesis appear once you and your colleagues have predicted a few of the same matches.</p>`;
-
   // betting style: average stake vs bankroll → Cautious / Balanced / Reckless
   // betting summary block (balance / profit / in play / won)
   const bt = d.betting || {};
@@ -1185,6 +1233,11 @@ async function loadProfile() {
       <h2 class="np-name">${d.person.display_name}${isMe ? ' <span class="np-you">you</span> <button class="np-edit" type="button" title="Edit profile" aria-label="Edit profile">✎</button>' : ""}</h2>
       <div class="np-sub">${subtitle}</div>
       ${isMe ? `<form id="np-editform" class="np-editform hidden">
+        <div class="npe-photo">
+          <span class="npe-prev" id="npe-prev">${avatarMark(d.person.display_name, d.person.photo)}</span>
+          <label class="npe-photobtn">Choose photo<input id="npe-file" type="file" accept="image/*" /></label>
+          <button type="button" id="npe-rmphoto" class="npe-ghost${d.person.photo ? "" : " hidden"}">Remove</button>
+        </div>
         <input id="npe-name" type="text" maxlength="40" value="${escapeHtml(d.person.display_name)}" placeholder="Display name" autocomplete="off" />
         ${d.person.hasPin ? `<input id="npe-cur" type="password" inputmode="numeric" maxlength="8" placeholder="Current PIN" autocomplete="off" />` : ""}
         <input id="npe-new" type="password" inputmode="numeric" maxlength="8" placeholder="${d.person.hasPin ? "New PIN (blank = keep)" : "Set a PIN (optional)"}" autocomplete="off" />
@@ -1198,7 +1251,6 @@ async function loadProfile() {
       </div>
       <div class="np-tabs">
         <button class="np-tab active" data-pt="form">Form</button>
-        <button class="np-tab" data-pt="rivals">Rivalries</button>
         <button class="np-tab" data-pt="style">Style</button>
         <button class="np-tab" data-pt="guide">Guide</button>
       </div>
@@ -1211,7 +1263,6 @@ async function loadProfile() {
         </div>` : ""}
         <div class="pf-list">${rows}</div>
       </div>
-      <div class="np-panel hidden" data-panel="rivals">${rivalsBlock}</div>
       <div class="np-panel hidden" data-panel="style">${betBlock}${riskBlock}</div>
       <div class="np-panel hidden" data-panel="guide">${guideBlock()}</div>
     </div>`;
@@ -1221,8 +1272,15 @@ async function loadProfile() {
   // edit own profile (name + PIN)
   const editBtn = wrap.querySelector(".np-edit"), editForm = wrap.querySelector("#np-editform");
   if (editBtn && editForm) {
+    let pendingPhoto; // undefined = unchanged, "" = remove, dataURL = new
     editBtn.addEventListener("click", () => { editForm.classList.toggle("hidden"); if (!editForm.classList.contains("hidden")) wrap.querySelector("#npe-name").focus(); });
     wrap.querySelector("#npe-cancel").addEventListener("click", () => editForm.classList.add("hidden"));
+    const prevEl = wrap.querySelector("#npe-prev"), fileEl = wrap.querySelector("#npe-file"), rmEl = wrap.querySelector("#npe-rmphoto");
+    if (fileEl) fileEl.addEventListener("change", () => {
+      const f = fileEl.files && fileEl.files[0]; if (!f) return;
+      resizeImage(f, 256, (url) => { pendingPhoto = url; prevEl.innerHTML = `<span class="ava"><img class="ava-photo" src="${url}" alt=""></span>`; if (rmEl) rmEl.classList.remove("hidden"); });
+    });
+    if (rmEl) rmEl.addEventListener("click", () => { pendingPhoto = ""; prevEl.innerHTML = avatarMark(d.person.display_name, null); rmEl.classList.add("hidden"); });
     editForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const err = wrap.querySelector("#npe-err"); err.textContent = "";
@@ -1231,9 +1289,11 @@ async function loadProfile() {
       const body = { personId: store.person.id, newName };
       if (curEl) body.pin = curEl.value.trim();
       if (newEl && newEl.value.trim()) body.newPin = newEl.value.trim();
+      if (pendingPhoto !== undefined) body.newPhoto = pendingPhoto;
       try {
         const resp = await api("/api/profile/update", { method: "POST", body: JSON.stringify(body) });
-        const pp = store.person; pp.display_name = resp.person.display_name; store.person = pp;
+        if (resp.token) store.token = resp.token; // PIN may have changed → refresh token
+        const pp = store.person; pp.display_name = resp.person.display_name; pp.photo = resp.person.photo; store.person = pp;
         $("#who-name").textContent = resp.person.display_name;
         $("#who-avatar").innerHTML = avatarMark(resp.person.display_name, resp.person.photo);
         loadProfile();
@@ -1548,7 +1608,8 @@ function renderPickPoster(m) {
 }
 
 // ---------- floating team chat ----------
-const chat = { open: false, msgs: [], players: [], poll: null, typing: [], lastSeen: Number(localStorage.getItem("wc_chat_seen") || 0) };
+const chat = { open: false, msgs: [], players: [], poll: null, typing: [], readers: [], lastSeen: Number(localStorage.getItem("wc_chat_seen") || 0), composing: null, dividerTs: 0, scrollToDivider: false };
+function markChatSeen() { const ts = chatLatestTs(); if (!ts) return; api("/api/chat/seen", { method: "POST", body: JSON.stringify({ personId: store.person.id, ts }) }).catch(() => {}); }
 function setChatPoll(ms) { clearInterval(chat.poll); chat.poll = setInterval(chatRefresh, ms); }
 function chatLatestTs() { return chat.msgs.length ? new Date(chat.msgs[chat.msgs.length - 1].created_at).getTime() : 0; }
 function chatTime(iso) { return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
@@ -1572,7 +1633,8 @@ async function chatRefresh() {
   let data; try { data = await api("/api/chat"); } catch { return; }
   chat.msgs = data.messages || [];
   chat.typing = (data.typing || []).filter((t) => t.id !== store.person.id);
-  if (chat.open) { renderChat(); renderTyping(); }
+  chat.readers = data.readers || [];
+  if (chat.open) { renderChat(); renderTyping(); markChatSeen(); }
   updateChatBadge();
 }
 function renderTyping() {
@@ -1591,33 +1653,93 @@ function updateChatBadge() {
   if (chat.open || !unread) { badge.classList.add("hidden"); }
   else { badge.textContent = unread > 9 ? "9+" : unread; badge.classList.remove("hidden"); }
 }
+// quoted snippet shown above a message that's a reply
+function chatQuote(reply) {
+  if (!reply) return "";
+  if (reply.deleted) return `<div class="cm-quote cm-quote-del"><span class="cm-quote-text"><i>deleted message</i></span></div>`;
+  return `<div class="cm-quote" data-jump="${reply.id}"><span class="cm-quote-name">${escapeHtml(reply.name)}</span><span class="cm-quote-text">${escapeHtml(reply.text)}</span></div>`;
+}
 function renderChat() {
   const box = $("#chat-msgs"); if (!box) return;
-  box.innerHTML = chat.msgs.length
-    ? chat.msgs.map((m) => {
-        const rx = `<div class="cm-rx">${reactionBar(`chatmsg:${m.id}`, m.reactions)}</div>`;
-        if (m.system) return `<div class="cm-sys-wrap"><div class="cm-sys">${escapeHtml(m.text)}</div>${rx}</div>`;
-        const me = m.person_id === store.person.id;
-        return `<div class="cm ${me ? "me" : "them"}">
-          ${me ? "" : `<span class="cm-ava${rankRing(m.person_id)}">${avatarMark(m.name, m.photo)}${onlineDot(m.person_id)}</span>`}
+  let dividerShown = false;
+  const parts = [];
+  if (!chat.msgs.length) {
+    parts.push(`<p class="cm-empty muted small">No messages yet — say hi to the team.</p>`);
+  } else {
+    for (const m of chat.msgs) {
+      // "new messages" divider before the first unread message from someone else
+      if (!dividerShown && !m.system && m.person_id !== store.person.id && new Date(m.created_at).getTime() > chat.dividerTs) {
+        parts.push(`<div class="cm-divider" id="cm-divider"><span>New messages</span></div>`);
+        dividerShown = true;
+      }
+      const rx = `<div class="cm-rx">${reactionBar(`chatmsg:${m.id}`, m.reactions)}</div>`;
+      if (m.system) {
+        parts.push(`<div class="cm-sys-wrap">${chatQuote(m.reply)}<div class="cm-sys">${escapeHtml(m.text)}</div><div class="cm-actions"><button class="cm-reply" data-id="${m.id}" title="Reply">↩</button></div>${rx}</div>`);
+        continue;
+      }
+      const me = m.person_id === store.person.id;
+      const acts = `<div class="cm-actions">
+            <button class="cm-reply" data-id="${m.id}" title="Reply">↩</button>
+            ${me ? `<button class="cm-edit" data-id="${m.id}" title="Edit">✎</button><button class="cm-del" data-id="${m.id}" title="Delete">✕</button>` : ""}
+          </div>`;
+      parts.push(`<div class="cm ${me ? "me" : "them"}">
+          ${me ? "" : `<span class="cm-ava${rankRing(m.person_id)}" data-profile="${m.person_id}" title="View ${escapeHtml(m.name)}'s profile">${avatarMark(m.name, m.photo)}${onlineDot(m.person_id)}</span>`}
           <div class="cm-body">
-            ${me ? "" : `<span class="cm-name">${escapeHtml(m.name)}</span>`}
-            <div class="cm-bubble">${highlightMentions(escapeHtml(m.text))}${me ? `<button class="cm-del" data-id="${m.id}" aria-label="Delete">✕</button>` : ""}</div>
-            <span class="cm-time">${chatTime(m.created_at)}</span>
+            ${me ? "" : `<span class="cm-name" data-profile="${m.person_id}">${escapeHtml(m.name)}</span>`}
+            ${chatQuote(m.reply)}
+            <div class="cm-bubble">${highlightMentions(escapeHtml(m.text))}</div>
+            <span class="cm-time">${chatTime(m.created_at)}${m.edited ? ` · <span class="cm-edited">edited</span>` : ""}</span>
+            ${acts}
             ${rx}
           </div>
-        </div>`;
-      }).join("")
-    : `<p class="cm-empty muted small">No messages yet — say hi to the team.</p>`;
-  box.scrollTop = box.scrollHeight;
+        </div>`);
+    }
+  }
+  box.innerHTML = parts.join("");
+  // "seen by" under the last message if it's mine
+  const last = chat.msgs[chat.msgs.length - 1];
+  if (last && !last.system && last.person_id === store.person.id) {
+    const lastTs = new Date(last.created_at).getTime();
+    const seers = (chat.readers || []).filter((r) => r.id !== store.person.id && r.ts >= lastTs).map((r) => r.name);
+    if (seers.length) {
+      const txt = seers.length <= 2 ? seers.join(", ") : `${seers.length} people`;
+      box.innerHTML += `<div class="cm-seen">Seen by ${escapeHtml(txt)}</div>`;
+    }
+  }
+  // on first open with unread, land on the divider; otherwise stick to the bottom
+  if (chat.scrollToDivider && dividerShown) {
+    const d = box.querySelector("#cm-divider");
+    if (d) d.scrollIntoView({ block: "center" }); else box.scrollTop = box.scrollHeight;
+    chat.scrollToDivider = false;
+  } else {
+    box.scrollTop = box.scrollHeight;
+  }
+}
+// reply/edit context bar above the input
+function renderComposeCtx() {
+  const el = $("#chat-ctx"); if (!el) return;
+  const c = chat.composing;
+  if (!c) { el.classList.add("hidden"); el.innerHTML = ""; return; }
+  const label = c.mode === "edit" ? "Editing message" : `Replying to ${escapeHtml(c.name)}`;
+  el.innerHTML = `<div class="cc-bar"><div class="cc-info"><span class="cc-label">${c.mode === "edit" ? "✎ " : "↩ "}${label}</span><span class="cc-snip">${escapeHtml(c.text || "")}</span></div><button type="button" class="cc-cancel" title="Cancel">✕</button></div>`;
+  el.classList.remove("hidden");
+}
+function cancelCompose() {
+  const wasEdit = chat.composing && chat.composing.mode === "edit";
+  chat.composing = null;
+  renderComposeCtx();
+  if (wasEdit) { const i = $("#chat-input"); if (i) i.value = ""; }
 }
 function openChat() {
   chat.open = true;
   $("#chat-panel").classList.remove("hidden");
   $("#chat-toggle").classList.add("active");
+  // remember where the unread divider goes (what they'd seen before opening)
+  chat.dividerTs = chat.lastSeen || 0;
+  chat.scrollToDivider = true;
   chat.lastSeen = chatLatestTs() || Date.now();
   localStorage.setItem("wc_chat_seen", chat.lastSeen);
-  renderChat(); renderTyping(); updateChatBadge();
+  renderChat(); renderTyping(); updateChatBadge(); markChatSeen();
   setChatPoll(3000); // poll faster while open (for live typing + messages)
   document.body.classList.add("chat-open");
   setTimeout(() => { const i = $("#chat-input"); if (i) i.focus(); }, 50);
@@ -1686,15 +1808,53 @@ const CHAT_EMOJI = ["😀","😂","😅","😉","😎","🥳","😭","😱","�
     closeMention();
     const t = (input.value || "").trim();
     if (!t) return;
+    const c = chat.composing;
     input.value = "";
-    try { const d = await api("/api/chat", { method: "POST", body: JSON.stringify({ personId: store.person.id, text: t }) }); chat.msgs = d.messages || []; chat.lastSeen = chatLatestTs(); localStorage.setItem("wc_chat_seen", chat.lastSeen); renderChat(); }
-    catch (err) { input.value = t; alert(err.message); }
+    try {
+      if (c && c.mode === "edit") {
+        const d = await api("/api/chat/edit", { method: "POST", body: JSON.stringify({ personId: store.person.id, id: c.id, text: t }) });
+        chat.msgs = d.messages || [];
+      } else {
+        const replyTo = c && c.mode === "reply" ? c.id : null;
+        const d = await api("/api/chat", { method: "POST", body: JSON.stringify({ personId: store.person.id, text: t, replyTo }) });
+        chat.msgs = d.messages || [];
+        chat.lastSeen = chatLatestTs(); localStorage.setItem("wc_chat_seen", chat.lastSeen);
+      }
+      chat.composing = null; renderComposeCtx(); renderChat();
+    } catch (err) { input.value = t; alert(err.message); }
   });
+  // delete / reply / edit / cancel / jump-to-quoted
   document.addEventListener("click", async (e) => {
     const del = e.target.closest(".cm-del");
-    if (!del) return;
-    if (!confirm("Delete this message?")) return;
-    try { const d = await api("/api/chat/delete", { method: "POST", body: JSON.stringify({ personId: store.person.id, id: del.dataset.id }) }); chat.msgs = d.messages || []; renderChat(); } catch (err) { /* ignore */ }
+    if (del) {
+      if (!confirm("Delete this message?")) return;
+      try { const d = await api("/api/chat/delete", { method: "POST", body: JSON.stringify({ personId: store.person.id, id: del.dataset.id }) }); chat.msgs = d.messages || []; renderChat(); } catch (err) { /* ignore */ }
+      return;
+    }
+    const rep = e.target.closest(".cm-reply");
+    if (rep) {
+      const m = chat.msgs.find((x) => x.id === rep.dataset.id); if (!m) return;
+      chat.composing = { mode: "reply", id: m.id, name: m.system ? "Match bot" : m.name, text: m.text };
+      renderComposeCtx(); const i = $("#chat-input"); if (i) i.focus();
+      return;
+    }
+    const ed = e.target.closest(".cm-edit");
+    if (ed) {
+      const m = chat.msgs.find((x) => x.id === ed.dataset.id); if (!m) return;
+      chat.composing = { mode: "edit", id: m.id, name: m.name, text: m.text };
+      renderComposeCtx(); const i = $("#chat-input"); if (i) { i.value = m.text; i.focus(); }
+      return;
+    }
+    if (e.target.closest(".cc-cancel")) { cancelCompose(); return; }
+    const jump = e.target.closest(".cm-quote[data-jump]");
+    if (jump) {
+      const box = $("#chat-msgs");
+      // find the rendered bubble for the quoted message id and flash it
+      const target = box && Array.from(box.querySelectorAll(".cm-reply")).find((b) => b.dataset.id === jump.dataset.jump);
+      const card = target && target.closest(".cm, .cm-sys-wrap");
+      if (card) { card.scrollIntoView({ block: "center" }); card.classList.add("cm-flash"); setTimeout(() => card.classList.remove("cm-flash"), 1400); }
+      return;
+    }
   });
 })();
 
